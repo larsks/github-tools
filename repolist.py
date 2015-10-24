@@ -73,7 +73,7 @@ def main():
         url = links['next']
     LOG.info('found %d repositories', len(repos))
 
-    print '\n'.join(x['git_url'] for x in repos)
+    print '\n'.join(x['url'] for x in repos)
 
 
 if __name__ == '__main__':
