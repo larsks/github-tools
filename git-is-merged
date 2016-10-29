@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+
+import sys
+import github
+import argparse
+import subprocess
+
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument('ref', nargs='?', default='HEAD')
+    return p.parse_args()
+
+def main():
+    args = parse_args()
+    ref = subprocess.check_output(['git', 'rev-parse', args.ref]).strip()
+    G = github.Github()
+
+    res = G.search_issues(ref)
+    issue_states = [issue.state == 'closed' for issue in res]
+
+    retval = 0
+    if not issue_states:
+        msg = 'There are no pull requests associated with {}.'
+        retval = 4
+    elif all(issue_states):
+        msg = 'All pull requests for {} are closed.'
+        retval = 0
+    elif any(issue_states):
+        msg = 'Some pull requests for {} are closed.'
+        retval = 1
+    else:
+        msg = 'All pull requests for {} are open.'
+        retval = 2
+
+    print (msg.format(ref))
+    sys.exit(retval)
+
+if __name__ == '__main__':
+    main()
