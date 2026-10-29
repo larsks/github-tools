@@ -1,0 +1,7 @@
+#!/bin/bash
+
+mapfile -t labels < <(gh api "/repos/{owner}/{repo}/labels" -q '.[].name' | fzf -m)
+
+if ((${#labels[*]} > 0)); then
+  printf -- "-l %s " "${labels[@]}"
+fi

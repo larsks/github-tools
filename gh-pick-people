@@ -1,0 +1,10 @@
+#!/bin/bash
+
+flag=$1
+shift
+
+mapfile -t people < <(fzf -m "$@")
+
+if ((${#people[*]} > 0)); then
+  printf -- "${flag:+${flag} }%s " "${people[@]}"
+fi

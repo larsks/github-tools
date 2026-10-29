@@ -1,0 +1,3 @@
+#!/bin/sh
+
+gh-org-people | gh-pick-people -a --footer "Organization users"

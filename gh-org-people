@@ -1,0 +1,25 @@
+#!/bin/bash
+
+owner=${GITHUB_ORG:-"{owner}"}
+while getopts o: ch; do
+  case $ch in
+  o)
+    owner=$OPTARG
+    ;;
+  \?)
+    exit 2
+    ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+tmpfile=$(mktemp peopleXXXXXX)
+trap 'rm -f "$tmpfile"' EXIT QUIT INT
+
+# This little dance is necessary because in the event of an error
+# gh outputs the API error on stdout.
+if gh api --paginate "/orgs/$owner/members" -q '.[].login' >"$tmpfile"; then
+  cat "$tmpfile"
+fi
+
+rm -f "$tmpfile"

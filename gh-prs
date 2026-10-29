@@ -1,0 +1,141 @@
+#!/bin/bash
+#
+# gh-prs - browse pending pull requests or issues across a GitHub organization
+#
+# Environment:
+#   GITHUB_ORG - GitHub organization to query (default: org for current repository)
+#
+# Controls:
+#   enter  - open the selected pull request in the local browser
+#   ctrl-t - toggle a preview pane showing the pull request description
+#
+set -euo pipefail
+
+usage() {
+  echo "${0##*/}: usage: ${0##*/} [ --org ORG ] [ --limit LIMIT ] [ --me ] [ --mine ] [ --review ] [ --author AUTHOR ] [ --assignee ASSIGNEE ] [ --commenter COMMENTER ] [ --mentions USER ] [ --no-dependabot ] [query_args]"
+}
+
+prog="${0##*/}"
+org=${GITHUB_ORG:-$(gh repo view --json owner -q .owner.login)}
+limit=100
+search_args=()
+query_args=()
+
+case $prog in
+gh-issues)
+  mode=issues
+  ;;
+gh-prs)
+  mode=prs
+  ;;
+*)
+  echo "ERROR: unknown operating mode" >&2
+  exit 1
+  ;;
+esac
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  -o | --org | --owner)
+    org=$2
+    shift 2
+    ;;
+  -L | --limit)
+    limit="$2"
+    shift 2
+    ;;
+  -A | --assignee)
+    search_args+=(--assignee "$2")
+    shift 2
+    ;;
+  -a | --author)
+    search_args+=(--author "$2")
+    shift 2
+    ;;
+  -m | --mentions)
+    search_args+=(--mentions "$2")
+    shift 2
+    ;;
+  -c | --commenter)
+    search_args+=(--commenter "$2")
+    shift 2
+    ;;
+  -r | --review)
+    search_args+=(--review-requested @me)
+    shift 2
+    ;;
+  --me)
+    search_args+=(--involves @me)
+    shift
+    ;;
+  --mine)
+    search_args+=(--author @me)
+    shift
+    ;;
+  -D | --no-dependabot)
+    query_args+=(-author:app/dependabot)
+    shift
+    ;;
+  -h | --help)
+    usage
+    exit
+    ;;
+  -*)
+    echo "$prog: unknown argument '$1'" >&2
+    usage >&2
+    exit 2
+    ;;
+  *)
+    break
+    ;;
+  esac
+done
+
+org=${org:?you must set organization via GITHUB_ORG or --org}
+
+for cmd in gh fzf column; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "$prog: required command '$cmd' not found in PATH" >&2
+    exit 1
+  fi
+done
+
+# Prefer glow for rendering markdown previews, falling back to plain
+# word-wrapping so long lines don't get truncated in the preview pane.
+render_cmd="fold -s -w \"\$FZF_PREVIEW_COLUMNS\""
+if command -v glow >/dev/null 2>&1; then
+  render_cmd="glow -s dark -w \"\$FZF_PREVIEW_COLUMNS\" -"
+fi
+
+preview_script="gh \"${mode%s}\" view {2} --repo {1} --json title,body --jq '\"# \" + .title + \"\n\n\" + .body' | $render_cmd"
+
+opener="xdg-open"
+if ! command -v "$opener" >/dev/null 2>&1; then
+  echo "$prog: required command '$opener' not found in PATH" >&2
+  exit 1
+fi
+
+footer="enter: open in browser   ctrl-t: toggle description preview"
+open_action="execute-silent($opener {6} >/dev/null 2>&1)+transform-header(echo \"Opened {1} #{2} in browser\")"
+
+gh search "$mode" \
+  "${search_args[@]}" \
+  --owner "$org" \
+  --state open \
+  --sort updated \
+  --order desc \
+  --limit "$limit" \
+  --json repository,number,updatedAt,author,title,url \
+  --jq '.[] | [.repository.nameWithOwner, .number, .updatedAt[0:10], .author.login, .title, .url] | @tsv' \
+  -- "${query_args[@]}" "$@" |
+  column -t -s $'\t' -o $'\t' |
+  fzf \
+    --delimiter='\t' \
+    --ellipsis="…" \
+    --with-nth=1,2,3,4,5 \
+    --preview="$preview_script" \
+    --preview-window=hidden,bottom,40% \
+    --bind="ctrl-t:toggle-preview" \
+    --bind="enter:$open_action" \
+    --header="" \
+    --footer="$footer"

@@ -1,0 +1,4 @@
+#!/bin/sh
+
+gh api --paginate "/repos/{owner}/{repo}/collaborators?affiliation=all" \
+  -q '.[] | select(.permissions.push == true) | .login'
