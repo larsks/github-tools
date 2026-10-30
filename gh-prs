@@ -12,7 +12,7 @@
 set -euo pipefail
 
 usage() {
-  echo "${0##*/}: usage: ${0##*/} [ --org ORG ] [ --limit LIMIT ] [ --me ] [ --mine ] [ --review ] [ --author AUTHOR ] [ --assignee ASSIGNEE ] [ --commenter COMMENTER ] [ --mentions USER ] [ --no-dependabot ] [query_args]"
+  echo "${0##*/}: usage: ${0##*/} [ --org ORG ] [ --limit LIMIT ] [ --me ] [ --mine ] [ --review ] [ --pending-review ] [ --author AUTHOR ] [ --assignee ASSIGNEE ] [ --commenter COMMENTER ] [ --mentions USER ] [ --no-dependabot ] [query_args]"
 }
 
 prog="${0##*/}"
@@ -62,7 +62,12 @@ while [[ $# -gt 0 ]]; do
     ;;
   -r | --review)
     search_args+=(--review-requested @me)
-    shift 2
+    shift
+    ;;
+  -P | --pending-review)
+    search_args+=(--review-requested @me)
+    query_args+=(-reviewed-by:@me)
+    shift
     ;;
   --me)
     search_args+=(--involves @me)
