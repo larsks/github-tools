@@ -16,7 +16,7 @@ usage() {
 }
 
 prog="${0##*/}"
-org=${GITHUB_ORG:-$(gh repo view --json owner -q .owner.login)}
+org=${GITHUB_ORG:-$(gh repo view --json owner -q .owner.login 2>/dev/null || :)}
 limit=100
 search_args=()
 query_args=()
